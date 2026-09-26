@@ -1,0 +1,6 @@
+{
+  "name": "Global Hegemony: World Simulator",
+  "description": "A realistic world simulation game where you manage a nation, engage in diplomacy, research technology, and compete for global dominance.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
