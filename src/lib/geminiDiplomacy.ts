@@ -275,7 +275,7 @@ function generateSimulatedDiplomaticResponse(context: DiplomaticPromptContext): 
         mood: 'furious',
         agreementOffer: {
           type: 'warning',
-          title: `إنذار أمني صارم صادر عن قيادة جيش الاحتلال`,
+          title: `إنذار أمني صارم صادر عن القيادة العسكرية الإسرائيلية`,
           description: `تحذير من مغبة التدخل العسكري أو قصف أهدافنا بدعوى الدفاع عن فلسطين.`,
           terms: `الامتناع عن إمداد المقاومة بالصواريخ وعدم تفعيل خيار الرد العسكري المشترك.`
         }

@@ -160,7 +160,7 @@ const VIP_TEMPLATES = [
   },
   {
     name: "رئيس الوزراء بنيامين كوهين",
-    title: "رئيس وزراء حكومة الاحتلال الإسرائيلي ومدير التوجيه الحربي بالنقب",
+    title: "رئيس الوزراء الإسرائيلي ومدير التوجيه الحربي بالنقب",
     countryId: "israel",
     intelSource: "تسريبات الخط الساخن والعمليات الجوية بتل أبيب",
     impactType: "general",
@@ -901,12 +901,6 @@ const WorldMap = ({
             {wars.some((w) => w.attackerId === country.id || w.defenderId === country.id) && country.isAlive && (
               <div className="absolute -top-3 -right-3 pointer-events-none text-xs select-none animate-bounce">
                 💥
-              </div>
-            )}
-            {/* Military Occupation Indicator */}
-            {occupations?.some((o) => o.occupiedId === country.id && o.status === 'active') && (
-              <div className="absolute -bottom-2.5 -left-2 pointer-events-none select-none bg-red-950/90 border border-red-500/70 rounded-full px-1 text-[9px] text-red-300 font-bold shadow-md" title="أرض محتلة عسكرياً">
-                🪖
               </div>
             )}
             {/* Joint Destiny Pact (Stand with country) Indicator */}
@@ -3088,7 +3082,7 @@ export default function App() {
     antiKidnappingShieldActive: false,
     terroristCountries: [],
     unVoteInProgress: null,
-    occupations: INITIAL_OCCUPATIONS,
+    occupations: [],
     jointDestinyPacts: [],
   });
 
@@ -5893,44 +5887,8 @@ export default function App() {
         nextTournaments.push(newTour);
       }
 
-      // Process Military Occupations (taxes, resistance actions, income)
-      const nextOccupations = (prev.occupations || []).map((occ) => {
-        if (occ.status !== 'active') return occ;
-        const occTarget = updatedCountries.find((c) => c.id === occ.occupiedId);
-        const occMaster = updatedCountries.find((c) => c.id === occ.occupierId);
-        if (!occTarget || !occMaster) return occ;
-
-        // If player is the occupier, generate occupation tax revenue
-        if (occMaster.isPlayer) {
-          occMaster.stats.economy += occ.occupationTax;
-          events.push({
-            id: `occ-tax-${occ.id}-${nextTurn}-${Math.random()}`,
-            turn: nextTurn,
-            message: `💰 [عوائد الاحتلال العسكري] تم تحصيل +${occ.occupationTax}B$ كعوائد وضريبة إدارة عسكرية من أقاليم ${occTarget.name}.`,
-            type: "economy",
-          });
-        }
-
-        // Resistance actions
-        const resistanceShift = Math.floor(Math.random() * 5) - 2;
-        const updatedResistance = Math.min(100, Math.max(10, occ.resistanceLevel + resistanceShift));
-
-        // High resistance can cause casualties or economic loss to occupier
-        if (updatedResistance > 70 && Math.random() < 0.3) {
-          occMaster.stats.military = Math.max(5, occMaster.stats.military - 1);
-          events.push({
-            id: `resistance-strike-${occ.id}-${nextTurn}-${Math.random()}`,
-            turn: nextTurn,
-            message: `🔥 [عمليات المقاومة الشعبية] نفذت خلايا المقاومة الصامدة في ${occTarget.name} كميناً محكماً ضد دوريات قوات الاحتلال التابعة لـ ${occMaster.name}!`,
-            type: "war",
-          });
-        }
-
-        return {
-          ...occ,
-          resistanceLevel: updatedResistance,
-        };
-      });
+      // Occupations maintained empty (no occupation system)
+      const nextOccupations: MilitaryOccupation[] = [];
 
       return {
         ...prev,
@@ -6722,27 +6680,18 @@ export default function App() {
     );
   };
 
-  const handleSendResistanceAid = (occupiedId: string, amount: number) => {
+  const handleSendResistanceAid = (targetId: string, amount: number) => {
     if (!playerCountry) return;
-    const target = gameState.countries.find((c) => c.id === occupiedId);
+    const target = gameState.countries.find((c) => c.id === targetId);
     if (!target) return;
 
     if (playerCountry.stats.economy < amount) {
-      addNews(`لا تملك رصيداً كافياً لتمويل شحنة الدعم العسكري!`, "economy");
+      addNews(`لا تملك رصيداً كافياً لتمويل شحنة الدعم الدفاعي!`, "economy");
       return;
     }
 
     setGameState((prev) => ({
       ...prev,
-      occupations: (prev.occupations || []).map((o) => {
-        if (o.occupiedId === occupiedId) {
-          return {
-            ...o,
-            resistanceLevel: Math.min(100, o.resistanceLevel + 8),
-          };
-        }
-        return o;
-      }),
       countries: prev.countries.map((c) => {
         if (c.id === playerCountry.id) {
           return {
@@ -6754,7 +6703,7 @@ export default function App() {
             },
           };
         }
-        if (c.id === occupiedId) {
+        if (c.id === targetId) {
           return {
             ...c,
             stats: {
@@ -6770,7 +6719,7 @@ export default function App() {
     }));
 
     addNews(
-      `📦🚀 [دعم الصمود والمقاومة] وصلت شحنة صواريخ باليستية ودعم مالي بقيمة ${amount}B$ من ${playerCountry.name} إلى المقاومة الصامدة في ${target.name}!`,
+      `📦🚀 [دعم الصمود والدفاع المشترك] وصلت شحنة صواريخ باليستية ودعم دفاعي بقيمة ${amount}B$ من ${playerCountry.name} إلى الأشقاء في ${target.name}!`,
       "war",
     );
   };
@@ -16630,10 +16579,10 @@ export default function App() {
               onClick={() => setIsOccupationsModalOpen(true)}
               className="px-4 py-2 bg-gradient-to-r from-emerald-950/90 to-slate-900 hover:from-emerald-900 border border-emerald-500/50 rounded-lg text-xs font-black text-emerald-300 transition-all flex items-center gap-2 shadow-lg shadow-emerald-950/40 active:scale-95 cursor-pointer"
             >
-              <span className="text-base">🇵🇸</span>
-              <span>الاحتلالات والمصير المشترك</span>
+              <span className="text-base">🤝</span>
+              <span>ميثاق المصير المشترك</span>
               <span className="bg-emerald-500/30 text-emerald-300 px-1.5 py-0.5 rounded text-[10px] font-mono">
-                {(gameState.occupations || []).filter((o) => o.status === 'active').length}
+                {(gameState.jointDestinyPacts || []).length}
               </span>
             </button>
             <div className="flex flex-col items-start">
@@ -16785,34 +16734,12 @@ export default function App() {
 
                   <div className="flex flex-wrap gap-2 items-center">
                     {(() => {
-                      const occ = (gameState.occupations || []).find(
-                        (o) => o.occupiedId === selectedCountry.id && o.status === 'active'
-                      );
-                      const isOccupier = (gameState.occupations || []).some(
-                        (o) => o.occupierId === selectedCountry.id && o.status === 'active'
-                      );
                       const hasJointPact = (gameState.jointDestinyPacts || []).some(
                         (p) => p.protectedId === selectedCountry.id
                       );
 
                       return (
                         <>
-                          {occ && (
-                            <button
-                              onClick={() => setIsOccupationsModalOpen(true)}
-                              className="px-3.5 py-1.5 bg-red-950/90 border border-red-500/70 rounded-full text-red-300 text-xs font-black flex items-center gap-1.5 animate-pulse shadow-md cursor-pointer hover:bg-red-900"
-                            >
-                              <span>🪖 أرض محتلة عسكرياً</span>
-                            </button>
-                          )}
-                          {isOccupier && (
-                            <button
-                              onClick={() => setIsOccupationsModalOpen(true)}
-                              className="px-3.5 py-1.5 bg-amber-950/90 border border-amber-500/70 rounded-full text-amber-300 text-xs font-black flex items-center gap-1.5 shadow-md cursor-pointer hover:bg-amber-900"
-                            >
-                              <span>⚔️ دولة محتلة لأراضٍ أخرى</span>
-                            </button>
-                          )}
                           {hasJointPact && (
                             <button
                               onClick={() => setIsOccupationsModalOpen(true)}
@@ -17063,7 +16990,7 @@ export default function App() {
                     },
                     {
                       id: "occupations_sovereignty",
-                      label: "🇵🇸 الاحتلالات والمصير المشترك",
+                      label: "🤝 ميثاق المصير المشترك",
                       icon: HeartHandshake,
                     },
                   ].map((tab) => (
@@ -21270,18 +21197,9 @@ export default function App() {
                                 </div>
                               ) : (
                                 <div className="space-y-6">
-                                  {/* Dedicated Joint Destiny and Occupation Console for Selected Country */}
+                                   {/* Dedicated Joint Destiny Console for Selected Country */}
                                   {(() => {
                                     if (selectedCountry.id === playerCountry.id) return null;
-                                    const occAsTarget = (gameState.occupations || []).find(
-                                      (o) => o.occupiedId === selectedCountry.id && o.status === 'active'
-                                    );
-                                    const occAsMaster = (gameState.occupations || []).filter(
-                                      (o) => o.occupierId === selectedCountry.id && o.status === 'active'
-                                    );
-                                    const isOccupiedByPlayer = (gameState.occupations || []).some(
-                                      (o) => o.occupiedId === selectedCountry.id && o.occupierId === playerCountry.id && o.status === 'active'
-                                    );
                                     const hasJointPact = (gameState.jointDestinyPacts || []).some(
                                       (p) => p.protectedId === selectedCountry.id
                                     );
@@ -21294,16 +21212,16 @@ export default function App() {
                                               onClick={() => setIsOccupationsModalOpen(true)}
                                               className="px-3 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-bold rounded-lg border border-emerald-500/30 transition cursor-pointer"
                                             >
-                                              عرض كل الاحتلالات 🇵🇸
+                                              مركز المواثيق 🤝
                                             </button>
                                           </div>
                                           <div className="flex items-center gap-3">
                                             <div className="text-right">
                                               <span className="text-[10px] text-emerald-400 font-bold block uppercase tracking-wider">
-                                                🇵🇸 ميثاق المصير المشترك والسيادة العسكرية
+                                                ميثاق المصير المشترك والدفاع التضامني
                                               </span>
                                               <h4 className="text-sm font-black text-white mt-0.5">
-                                                الموقف العسكري والسيادي تجاه {selectedCountry.name}
+                                                الموقف الاستراتيجي تجاه {selectedCountry.name}
                                               </h4>
                                             </div>
                                             <div className="p-2.5 bg-emerald-950/90 border border-emerald-500/50 rounded-xl text-emerald-400">
@@ -21312,41 +21230,11 @@ export default function App() {
                                           </div>
                                         </div>
 
-                                        {occAsTarget && (
-                                          <div className="p-4 bg-red-950/40 border border-red-500/40 rounded-2xl text-xs space-y-2">
-                                            <div className="flex items-center justify-between">
-                                              <span className="text-red-400 font-black flex items-center gap-1.5">
-                                                <span>🪖</span>
-                                                <span>هذه الدولة تقع تحت الاحتلال العسكري المباشر</span>
-                                              </span>
-                                              <span className="text-slate-300 font-bold">
-                                                المحتل: {gameState.countries.find(c => c.id === occAsTarget.occupierId)?.name}
-                                              </span>
-                                            </div>
-                                            <p className="text-slate-300 leading-relaxed">
-                                              تخضع أراضيها ومقدراتها لسيطرة قوات الاحتلال، وتخوض مقاومتها الشعبية صموداً مستمراً بنسبة جاهزية {occAsTarget.resistanceLevel}%.
-                                            </p>
-                                          </div>
-                                        )}
-
-                                        {occAsMaster.length > 0 && (
-                                          <div className="p-4 bg-amber-950/40 border border-amber-500/40 rounded-2xl text-xs space-y-2">
-                                            <div className="text-amber-400 font-black flex items-center gap-1.5">
-                                              <span>⚔️</span>
-                                              <span>هذه الدولة تحتل أراضي دول أخرى بالقوة المسلحة:</span>
-                                            </div>
-                                            <div className="flex flex-wrap gap-2">
-                                              {occAsMaster.map(o => {
-                                                const victim = gameState.countries.find(c => c.id === o.occupiedId);
-                                                return (
-                                                  <span key={o.id} className="bg-red-500/20 border border-red-500/40 text-red-300 px-2.5 py-1 rounded-lg text-xs font-bold">
-                                                    {victim?.flag} {victim?.name}
-                                                  </span>
-                                                );
-                                              })}
-                                            </div>
-                                          </div>
-                                        )}
+                                        <p className="text-xs text-slate-300 leading-relaxed">
+                                          {hasJointPact
+                                            ? `الميثاق سارٍ: أي اعتداء أو استهداف عسكري يطال ${selectedCountry.name} يُعتبر فوراً عدواناً مباشراً على عاصمتنا يستوجب الردع الصاروخي المباشر والدخول في المعركة دفاعاً عنهم.`
+                                            : `بإمكانك إبرام ميثاق المصير المشترك مع ${selectedCountry.name} لاعتبار أي عدوان يقع عليهم اعتداءً مباشراً على أراضيك، وتوفير مظلة حماية وردع صاروخي دفاعي مشترك.`}
+                                        </p>
 
                                         {/* Action buttons */}
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
@@ -21369,61 +21257,17 @@ export default function App() {
                                               className="p-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-2xl text-xs font-black shadow-lg shadow-emerald-900/30 flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer"
                                             >
                                               <HeartHandshake className="w-4 h-4" />
-                                              <span>عقد حلف المصير المشترك ("أي اعتداء عليهم اعتداء عليا") 🇵🇸</span>
+                                              <span>عقد حلف المصير المشترك («أي اعتداء عليهم اعتداء عليا») 🤝</span>
                                             </button>
                                           )}
 
-                                          {occAsTarget && (
-                                            <>
-                                              <button
-                                                onClick={() => handleSendResistanceAid(selectedCountry.id, 10)}
-                                                className="p-3 bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer"
-                                              >
-                                                <span>🚀📦</span>
-                                                <span>إمداد صواريخ وميزانية المقاومة (10B$)</span>
-                                              </button>
-                                              <button
-                                                onClick={() => handleLaunchLiberationWar(selectedCountry.id, occAsTarget.occupierId)}
-                                                className="p-3 bg-red-600 hover:bg-red-500 text-white rounded-2xl text-xs font-black shadow-lg shadow-red-900/40 flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer"
-                                              >
-                                                <span>🚀⚔️</span>
-                                                <span>معركة التحرير الكبرى وطرد الاحتلال</span>
-                                              </button>
-                                            </>
-                                          )}
-
-                                          {occAsMaster.length > 0 && !occAsTarget && (
-                                            <button
-                                              onClick={() => {
-                                                const firstVictim = occAsMaster[0];
-                                                if (firstVictim) handleLaunchLiberationWar(firstVictim.occupiedId, selectedCountry.id);
-                                              }}
-                                              className="p-3 bg-red-600 hover:bg-red-500 text-white rounded-2xl text-xs font-black shadow-lg shadow-red-900/40 flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer"
-                                            >
-                                              <span>⚔️🚀</span>
-                                              <span>شن حرب تحرير الأراضي المحتلة من قبضتهم</span>
-                                            </button>
-                                          )}
-
-                                          {isOccupiedByPlayer ? (
-                                            <button
-                                              onClick={() => handleLiberateCountry(selectedCountry.id)}
-                                              className="p-3 bg-teal-600 hover:bg-teal-500 text-white rounded-2xl text-xs font-black shadow-lg flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer"
-                                            >
-                                              <span>🕊️</span>
-                                              <span>إنهاء الاحتلال وإعلان السيادة والتحرير</span>
-                                            </button>
-                                          ) : (
-                                            !occAsTarget && (
-                                              <button
-                                                onClick={() => handleOccupyCountry(selectedCountry.id)}
-                                                className="p-3 bg-slate-900 hover:bg-slate-800 border border-red-500/40 text-red-300 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer"
-                                              >
-                                                <span>🪖</span>
-                                                <span>فرض الاحتلال العسكري الشامل وإخضاع الدولة</span>
-                                              </button>
-                                            )
-                                          )}
+                                          <button
+                                            onClick={() => handleSendResistanceAid(selectedCountry.id, 10)}
+                                            className="p-3 bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer"
+                                          >
+                                            <span>🚀📦</span>
+                                            <span>إمداد صواريخ ودعم دفاعي (10B$)</span>
+                                          </button>
                                         </div>
                                       </div>
                                     );
@@ -28670,16 +28514,16 @@ export default function App() {
                         <div className="space-y-6 text-right" dir="rtl">
                           <div className="p-6 bg-gradient-to-r from-emerald-950/70 via-slate-900 to-black border-2 border-emerald-500/40 rounded-3xl flex flex-wrap items-center justify-between gap-4 shadow-2xl">
                             <div className="flex items-center gap-4">
-                              <span className="text-4xl drop-shadow-[0_0_12px_rgba(16,185,129,0.5)]">🇵🇸</span>
+                              <span className="text-4xl drop-shadow-[0_0_12px_rgba(16,185,129,0.5)]">🤝</span>
                               <div>
                                 <h3 className="text-xl font-black text-white flex items-center gap-2">
-                                  <span>منظومة الاحتلالات العسكرية وميثاق المصير المشترك</span>
+                                  <span>ميثاق المصير المشترك والدفاع التضامني</span>
                                   <span className="bg-emerald-500/20 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full border border-emerald-500/40 font-mono">
                                     كفالة سيادية مطلقة
                                   </span>
                                 </h3>
                                 <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
-                                  "كأنهم محتليني.. وأي اعتداء عليهم كأنه اعتداء مباشر عليا" — قف مع الدول المحتلة كفلسطين، أدر الاحتلالات العسكرية، ونسق الردود الدفاعية وهجمات التحرير الشاملة!
+                                  "أي اعتداء عليهم كأنه اعتداء مباشر عليا" — قف مع الأشقاء كدولة فلسطين الحرة، ونسق منظومة الردع الصاروخي وشبكة الدفاع التضامني لحماية سيادة حلفائك!
                                 </p>
                               </div>
                             </div>
@@ -28688,88 +28532,95 @@ export default function App() {
                               className="px-6 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black rounded-2xl shadow-xl shadow-emerald-700/30 flex items-center gap-2.5 transition-all active:scale-95 cursor-pointer"
                             >
                               <HeartHandshake className="w-4 h-4" />
-                              <span>فتح مركز إدارة الاحتلالات والمصير المشترك الكامل</span>
+                              <span>فتح مركز إدارة ميثاق المصير المشترك</span>
                             </button>
                           </div>
 
-                          {/* Occupations and Pacts cards in Tab */}
+                          {/* Joint Destiny Pacts cards in Tab */}
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {(gameState.occupations || []).map((occ) => {
-                              const occupied = gameState.countries.find((c) => c.id === occ.occupiedId);
-                              const occupier = gameState.countries.find((c) => c.id === occ.occupierId);
-                              if (!occupied || !occupier) return null;
-                              const hasPact = (gameState.jointDestinyPacts || []).some((p) => p.protectedId === occ.occupiedId);
+                            {(() => {
+                              const featuredIds = Array.from(new Set([
+                                'palestine',
+                                ...(gameState.jointDestinyPacts || []).map(p => p.protectedId),
+                                'lebanon',
+                                'yemen'
+                              ]));
 
-                              return (
-                                <div key={occ.id} className="bg-slate-900/90 border border-slate-800 hover:border-emerald-500/50 rounded-2xl p-5 space-y-4 shadow-xl transition-all">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                      <span className="text-3xl">{occupied.flag}</span>
+                              return featuredIds.map((cId) => {
+                                const country = gameState.countries.find((c) => c.id === cId);
+                                if (!country || country.id === playerCountry.id) return null;
+                                const hasPact = (gameState.jointDestinyPacts || []).some((p) => p.protectedId === country.id);
+
+                                return (
+                                  <div key={country.id} className="bg-slate-900/90 border border-slate-800 hover:border-emerald-500/50 rounded-2xl p-5 space-y-4 shadow-xl transition-all">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-3">
+                                        <span className="text-3xl">{country.flag}</span>
+                                        <div>
+                                          <h4 className="text-base font-black text-white">{country.name}</h4>
+                                          <p className="text-xs text-emerald-400 font-bold mt-0.5">
+                                            {hasPact ? "حليف مكفول السيادة بميثاق المصير المشترك 🛡️" : "دولة شقيقة متاحة لعقد الميثاق"}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      {hasPact ? (
+                                        <span className="px-3 py-1 bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-black rounded-full flex items-center gap-1.5 shadow-md">
+                                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                                          <span>الميثاق مفعل 🤝</span>
+                                        </span>
+                                      ) : (
+                                        <button
+                                          onClick={() => handleSignJointDestinyPact(country.id)}
+                                          className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-all shadow-md active:scale-95 cursor-pointer"
+                                        >
+                                          عقد حلف المصير المشترك 🤝
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    <div className="grid grid-cols-3 gap-2 text-xs bg-black/40 p-3 rounded-xl border border-white/5 text-center">
                                       <div>
-                                        <h4 className="text-base font-black text-white">{occupied.name}</h4>
-                                        <p className="text-xs text-red-400 font-bold mt-0.5">
-                                          أرض محتلة من قِبل: {occupier.flag} {occupier.name}
-                                        </p>
+                                        <span className="text-slate-400 text-[10px]">القدرة العسكرية</span>
+                                        <div className="text-white font-black text-sm mt-0.5">{country.stats.military}%</div>
+                                      </div>
+                                      <div>
+                                        <span className="text-slate-400 text-[10px]">المنصات الصاروخية</span>
+                                        <div className="text-emerald-400 font-black text-sm mt-0.5">{country.stats.missiles || 0}</div>
+                                      </div>
+                                      <div>
+                                        <span className="text-slate-400 text-[10px]">الميزانية</span>
+                                        <div className="text-amber-400 font-bold text-sm mt-0.5">{country.stats.economy}B$</div>
                                       </div>
                                     </div>
-                                    {hasPact ? (
-                                      <span className="px-3 py-1 bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-black rounded-full flex items-center gap-1.5 shadow-md">
-                                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                                        <span>حلف المصير المشترك مفعل 🤝</span>
-                                      </span>
-                                    ) : (
+
+                                    <div className="flex flex-wrap gap-2 pt-2 border-t border-white/10">
                                       <button
-                                        onClick={() => handleSignJointDestinyPact(occ.occupiedId)}
-                                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-all shadow-md active:scale-95 cursor-pointer"
+                                        onClick={() => handleSendResistanceAid(country.id, 10)}
+                                        className="px-3 py-1.5 bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer flex items-center gap-1"
                                       >
-                                        عقد حلف المصير المشترك 🤝
+                                        <span>🚀</span>
+                                        <span>إمداد بالصواريخ والتمويل (10B$)</span>
                                       </button>
-                                    )}
-                                  </div>
-
-                                  <div className="grid grid-cols-2 gap-2 text-xs bg-black/40 p-3 rounded-xl border border-white/5">
-                                    <div>
-                                      <span className="text-slate-400">مستوى الصمود والمقاومة:</span>
-                                      <div className="text-emerald-400 font-black text-sm mt-0.5">{occ.resistanceLevel}%</div>
+                                      <button
+                                        onClick={() => openDiplomaticDiscussion(country, null)}
+                                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer flex items-center gap-1"
+                                      >
+                                        <span>🗣️</span>
+                                        <span>قمة دبلوماسية وتنسيق</span>
+                                      </button>
+                                      {hasPact && (
+                                        <button
+                                          onClick={() => handleRevokeJointDestinyPact(country.id)}
+                                          className="px-3 py-1.5 bg-red-950/50 hover:bg-red-900 text-red-300 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer flex items-center gap-1 mr-auto"
+                                        >
+                                          <span>إنهاء الحلف</span>
+                                        </button>
+                                      )}
                                     </div>
-                                    <div>
-                                      <span className="text-slate-400">حالة الاحتلال:</span>
-                                      <div className="text-red-400 font-bold mt-0.5">{occ.status === 'active' ? 'احتلال عسكري قائم' : 'محررة'}</div>
-                                    </div>
-                                    <div className="col-span-2 text-slate-300 text-[11px] pt-1">
-                                      📍 الأقاليم: {occ.occupiedRegions.slice(0, 3).join('، ')}...
-                                    </div>
                                   </div>
-
-                                  <div className="flex flex-wrap gap-2 pt-2 border-t border-white/10">
-                                    <button
-                                      onClick={() => handleSendResistanceAid(occ.occupiedId, 10)}
-                                      className="px-3 py-1.5 bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer flex items-center gap-1"
-                                    >
-                                      <span>🚀</span>
-                                      <span>إمداد بالصواريخ والتمويل (10B$)</span>
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        const occObj = gameState.countries.find(c => c.id === occ.occupierId);
-                                        if (occObj) openDiplomaticDiscussion(occObj);
-                                      }}
-                                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer flex items-center gap-1"
-                                    >
-                                      <span>🗣️</span>
-                                      <span>قمة دبلوماسية للتحدث نيابة عنهم</span>
-                                    </button>
-                                    <button
-                                      onClick={() => handleLaunchLiberationWar(occ.occupiedId, occ.occupierId)}
-                                      className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer flex items-center gap-1"
-                                    >
-                                      <span>⚔️</span>
-                                      <span>معركة التحرير الكبرى</span>
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            })}
+                                );
+                              });
+                            })()}
                           </div>
                         </div>
                       )}
